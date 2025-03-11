@@ -1,20 +1,20 @@
 FROM golang:1.22 as builder
-RUN git clone https://github.com/protolambda/eth2-testnet-genesis.git  \
-    && cd eth2-testnet-genesis \
-    && go install . \
-    && go install github.com/protolambda/eth2-val-tools@latest \
-    && go install github.com/protolambda/zcli@latest
+RUN git clone https://github.com/weaveVM/eth2-testnet-genesis  \
+  && cd eth2-testnet-genesis \
+  && go install . \
+  && go install github.com/weaveVM/eth2-val-tools@latest \
+  && go install github.com/protolambda/zcli@latest
 
 FROM debian:latest
 WORKDIR /work
 VOLUME ["/config", "/data"]
 EXPOSE 8000/tcp
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y \
-    ca-certificates build-essential python3 python3-dev python3.11-venv python3-venv python3-pip gettext-base jq wget curl && \
-    apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+  apt-get install --no-install-recommends -y \
+  ca-certificates build-essential python3 python3-dev python3.11-venv python3-venv python3-pip gettext-base jq wget curl && \
+  apt-get autoremove -y && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 
 COPY apps /apps
 
