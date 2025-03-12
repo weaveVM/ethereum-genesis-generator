@@ -83,10 +83,16 @@ gen_cl_config(){
         python3 /apps/envsubst.py < /config/cl/config.yaml > /data/metadata/config.yaml
         sed -i "s/#HUMAN_TIME_PLACEHOLDER/$COMMENT/" /data/metadata/config.yaml
         python3 /apps/envsubst.py < /config/cl/mnemonics.yaml > $tmp_dir/mnemonics.yaml
+
+        # sed -i "s/PRESET_BASE:.*/PRESET_BASE: wvm/" /data/metadata/config.yaml
+        # export PRESET_BASE="wvm"
+
+
         # Conditionally override values if preset is "minimal"
         if [[ "$PRESET_BASE" == "minimal" ]]; then
           gen_minimal_config
         fi
+        
         cp $tmp_dir/mnemonics.yaml /data/metadata/mnemonics.yaml
         # Create deposit_contract.txt and deploy_block.txt
         grep DEPOSIT_CONTRACT_ADDRESS /data/metadata/config.yaml | cut -d " " -f2 > /data/metadata/deposit_contract.txt
@@ -225,6 +231,8 @@ gen_cl_config(){
         echo "Genesis block hash: $(jq -r '.latest_execution_payload_header.block_hash' /data/parsed/parsedConsensusGenesis.json)"
         jq -r '.eth1_data.block_hash' /data/parsed/parsedConsensusGenesis.json| tr -d '\n' > /data/metadata/deposit_contract_block_hash.txt
         jq -r '.genesis_validators_root' /data/parsed/parsedConsensusGenesis.json | tr -d '\n' > /data/metadata/genesis_validators_root.txt
+
+        sed -i "s/PRESET_BASE:.*/PRESET_BASE: wvm/" /data/metadata/config.yaml
     else
         echo "cl genesis already exists. skipping generation..."
     fi
