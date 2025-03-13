@@ -1,0 +1,106 @@
+name: Google Artifact Registry
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      force_build:
+        type: boolean
+        description: "Build image even if tests fail"
+        default: false
+
+jobs:
+  docker-release:
+    name: Docker Build Test Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/ethereum-genesis-generator
+          tags: |
+            # "latest" if on master or a tag based on master
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || (github.ref_type == 'tag' && github.event.base_ref == 'refs/heads/master') }}
+            # Tag is derived from the Git tag (if event=tag)
+            type=ref,event=tag
+            # Otherwise use the branch name
+            type=ref,event=branch,enable=${{ github.ref != 'refs/heads/master' }}
+
+      - name: Authenticate with Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: access_token
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+          access_token_lifetime: 1800s
+
+      - name: Configure Docker for GAR
+        run: |
+          gcloud auth configure-docker us-east1-docker.pkg.dev
+          echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --debug
+
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: us-east1-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      # Multi-arch build (local export, but not pushed yet)
+      - name: Build multi-arch (local export)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          # load: true loads only the amd64 image locally for testing
+          load: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ethereum-genesis-generator:local
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: |
+            type=registry,ref=us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/ethereum-genesis-generator:buildcache
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      # (Optional) Verify that an image with "local" tag was successfully built
+      - name: Verify local image
+        run: |
+          if ! docker image inspect ethereum-genesis-generator:local >/dev/null 2>&1; then
+            echo "Local image ethereum-genesis-generator:local not found!"
+            exit 1
+          fi
+          echo "Local image verified successfully"
+
+      # Now push multi-arch image to GCP
+      - name: Push multi-arch image to registry
+        if: success() || github.event.inputs.force_build == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: |
+            type=registry,ref=us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/ethereum-genesis-generator:buildcache
+          cache-to: |
+            type=registry,ref=us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/ethereum-genesis-generator:buildcache,mode=max
