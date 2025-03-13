@@ -62,26 +62,24 @@ jobs:
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
 
-      # Multi-arch build (local export, but not pushed yet)
-      - name: Build multi-arch (local export)
-        id: build
+      # STEP 1: Build *single-arch* image (for local testing)
+      - name: Build local image
+        id: local_build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: false
-          # load: true loads only the amd64 image locally for testing
-          load: true
-          platforms: linux/amd64,linux/arm64
+          load: true     # load to local Docker
+          # Build only the runner's default arch (normally linux/amd64)
+          platforms: linux/amd64
           tags: |
             ethereum-genesis-generator:local
-            ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: |
-            type=registry,ref=us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/ethereum-genesis-generator:buildcache
+          # (Optional) no need for separate cache from or meta tags here,
+          # but you can still reuse them if you like.
           build-args: |
             BUILDKIT_INLINE_CACHE=1
 
-      # (Optional) Verify that an image with "local" tag was successfully built
+      # (Optional) Verify that the single-arch local image was successfully built
       - name: Verify local image
         run: |
           if ! docker image inspect ethereum-genesis-generator:local >/dev/null 2>&1; then
@@ -90,13 +88,14 @@ jobs:
           fi
           echo "Local image verified successfully"
 
-      # Now push multi-arch image to GCP
+      # STEP 2: Build + push *multi-arch* to GCP
       - name: Push multi-arch image to registry
         if: success() || github.event.inputs.force_build == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          # Build & push both amd64 + arm64
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
