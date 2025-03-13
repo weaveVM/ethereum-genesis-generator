@@ -84,7 +84,7 @@ gen_cl_config(){
         sed -i "s/#HUMAN_TIME_PLACEHOLDER/$COMMENT/" /data/metadata/config.yaml
         python3 /apps/envsubst.py < /config/cl/mnemonics.yaml > $tmp_dir/mnemonics.yaml
 
-        sed -i "s/PRESET_BASE:.*/PRESET_BASE: wvm/" /data/metadata/config.yaml
+        # sed -i "s/PRESET_BASE:.*/PRESET_BASE: wvm/" /data/metadata/config.yaml
         # export PRESET_BASE="wvm"
 
         # Conditionally override values if preset is "minimal"
@@ -231,7 +231,7 @@ gen_cl_config(){
         jq -r '.eth1_data.block_hash' /data/parsed/parsedConsensusGenesis.json| tr -d '\n' > /data/metadata/deposit_contract_block_hash.txt
         jq -r '.genesis_validators_root' /data/parsed/parsedConsensusGenesis.json | tr -d '\n' > /data/metadata/genesis_validators_root.txt
 
-        sed -i "s/PRESET_BASE:.*/PRESET_BASE: wvm/" /data/metadata/config.yaml
+        # sed -i "s/PRESET_BASE:.*/PRESET_BASE: wvm/" /data/metadata/config.yaml
     else
         echo "cl genesis already exists. skipping generation..."
     fi
