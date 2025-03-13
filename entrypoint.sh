@@ -84,9 +84,8 @@ gen_cl_config(){
         sed -i "s/#HUMAN_TIME_PLACEHOLDER/$COMMENT/" /data/metadata/config.yaml
         python3 /apps/envsubst.py < /config/cl/mnemonics.yaml > $tmp_dir/mnemonics.yaml
 
-        # sed -i "s/PRESET_BASE:.*/PRESET_BASE: wvm/" /data/metadata/config.yaml
+        sed -i "s/PRESET_BASE:.*/PRESET_BASE: wvm/" /data/metadata/config.yaml
         # export PRESET_BASE="wvm"
-
 
         # Conditionally override values if preset is "minimal"
         if [[ "$PRESET_BASE" == "minimal" ]]; then
